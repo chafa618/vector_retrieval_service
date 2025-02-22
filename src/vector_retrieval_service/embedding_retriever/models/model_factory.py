@@ -22,9 +22,9 @@ class LLMFactory:
     @staticmethod
     @lru_cache
     def get_model(model_type: LanguageModels) -> Any:
+        mini_lm = EmbeddingModel("sentence-transformers/all-MiniLM-L6-v2")
         match model_type:
             case LanguageModels.mini_lm:
-                mini_lm = EmbeddingModel("sentence-transformers/all-MiniLM-L6-v2")
                 return mini_lm
             case LanguageModels.multi_qa:
                 multi_qa = EmbeddingModel("sentence-transformers/multi-qa-mpnet-base-dot-v1")
