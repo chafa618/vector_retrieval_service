@@ -174,4 +174,4 @@ cython_debug/
 .pypirc
 
 # Py cache
-*/__pycache__/
+src/*/__pycache__/*
