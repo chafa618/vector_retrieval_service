@@ -1,7 +1,8 @@
 
 from ctypes import util
-from vector_retrieval_service.service_api.services.dtos import TextEmbeddingsResponse
+from vector_retrieval_service.service_api.services.dtos import TextEmbeddingsResponse, TextSimilarityIndex, TextSimilarityResponse
 from vector_retrieval_service.embedding_retriever.models.model_factory import LLMFactory, LanguageModels
+from sklearn.metrics.pairwise import cosine_similarity
 
 import asyncer
 import logging
@@ -33,33 +34,27 @@ async def get_text_similarity_service(
     query: str,
     corpus: list[str],
     requested_model: LanguageModels
-) -> dict[str, float]:
+) -> TextSimilarityResponse:
 
-    embedding_model = LLMFactory.get_model(
-        requested_model
-    )
-    texts = [query] + corpus
-    embeddings = await asyncer.asyncify(embedding_model.get_embedding)(texts)
-    query_embeddings = embeddings[0]
-    doc_embeddings = embeddings[1:]
-    
-    #scores = await asyncer.asyncify(util.dot_score)(query_embeddings, doc_embeddings)
-    distances = {
-        text_: float(np.linalg.norm(doc_embedding - query_embeddings)) # CHANGE THIS LINE
-        for doc_embedding, text_ in zip(doc_embeddings, corpus)
-    } 
-    return dict(sorted(distances.items(), key=lambda x: x[1], reverse=False))
-"""
-    doc_score_pairs = list(zip(corpus, scores))
-    doc_score_pairs = sorted(doc_score_pairs, key=lambda x: x[1], reverse=True)
+        embedding_model = LLMFactory.get_model(requested_model)
+        texts = [query] + corpus
+        embeddings = await asyncer.asyncify(embedding_model.get_embedding)(texts)
+        query_embedding = embeddings[0].reshape(1, -1)
+        corpus_embeddings = embeddings[1:]
+        similarities = cosine_similarity(query_embedding, corpus_embeddings)[0]
+        doc_score_pairs = list(zip(corpus, similarities, range(len(corpus))))
+        sorted_doc_score_pairs = sorted(doc_score_pairs, key=lambda x: x[1], reverse=True)
+        res = [
+                TextSimilarityIndex(
+                    original_text_id=index_,
+                    text=doc,
+                    distance_to_query=score
+                )
+                for doc, score, index_ in sorted_doc_score_pairs]
+        
+        similarity_response = TextSimilarityResponse(
+            query=query,
+            results=res
+        )
 
-    return {
-        "query": query,
-        "results": [
-            {
-                "text": doc,
-                "score": score
-            }
-            for doc, score in doc_score_pairs
-        ]
-    } """
+        return similarity_response
